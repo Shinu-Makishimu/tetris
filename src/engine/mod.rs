@@ -123,7 +123,7 @@ impl Engine {
         self.place_cursor();        
     }
 
-    fn cells(&self) ->CellIter <'_> {
+    pub fn cells(&self) ->CellIter <'_> {
         CellIter {
             position: Coordinate::origin(),
             cell_iter: self.matrix.0.iter(),

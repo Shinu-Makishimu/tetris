@@ -18,7 +18,7 @@ const PLACEHOLDER_2: Color = Color::RGB(0x77, 0x88, 0x88);
 
 
 
-pub fn run(_engine: Engine) {
+pub fn run(engine: Engine) {
     let sdl = sdl2::init().expect("Fail to init SDL2");
 
     let mut canvas = {
@@ -46,12 +46,12 @@ pub fn run(_engine: Engine) {
                 _ => {}
                 }
             }
-        draw(&mut canvas);
+        draw(&mut canvas, &engine);
     }
 
 }
 
-fn draw(canvas: &mut Canvas<Window>) {
+fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     canvas.set_draw_color(BACKGROUND_COLOR);
     canvas.clear();
 
@@ -152,6 +152,7 @@ fn draw(canvas: &mut Canvas<Window>) {
         rect
     };
 
+    //this block is draw blocks for background
 
     canvas.set_draw_color(PLACEHOLDER_1);
     canvas.fill_rect(matrix).unwrap();
@@ -161,10 +162,31 @@ fn draw(canvas: &mut Canvas<Window>) {
     canvas.fill_rect(queue).unwrap();
     canvas.fill_rect(score_area).unwrap();
 
-    for cell_x in 0 .. Matrix::WIDTH {
+    /*for cell_x in 0 .. Matrix::WIDTH {
         for cell_y in 0 .. Matrix::HEIGHT {
             todo!()
         }
+    } */ //insted using two cycles, use iterator
+
+    let matrix_origin = matrix.bottom_left();
+    let (matrix_width, matrix_height) = matrix.size();
+
+    for (coord, _cell) in engine.cells() {
+        let coord = coord.cast::<i32>().unwrap();
+        
+        let this_x = (coord.x as u32 + 0) * matrix_width / Matrix::WIDTH as u32;
+        let this_y = (coord.y as u32 + 1) * matrix_height / Matrix::HEIGHT as u32;
+        let next_x = (coord.x as u32 + 1) * matrix_width / Matrix::WIDTH as u32;
+        let next_y = (coord.y as u32 + 2) * matrix_height / Matrix::HEIGHT as u32;
+        let cell_rect = Rect::new(
+            matrix_origin.x + this_x as i32,
+            matrix_origin.y - this_y as i32,
+            next_x - this_x,
+            next_y - this_y,
+        );
+        
+        canvas.set_draw_color(Color::WHITE);
+        canvas.draw_rect(cell_rect).unwrap();
     }
     canvas.present();
 }
