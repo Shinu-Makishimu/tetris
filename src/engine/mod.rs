@@ -1,14 +1,33 @@
+use std::{
+    ops::{
+        Index, 
+        IndexMut
+    }
+};
 
-use std::ops::{Index, IndexMut};
+use cgmath::{
+    Vector2, 
+    Point2, 
+    EuclideanSpace
+};
 
-use cgmath::{Vector2, Point2};
-use rand::{prelude::{SliceRandom, ThreadRng}, thread_rng};
-use self::piece::{Piece, Kind as PieceKind};
-
+use rand::{
+    prelude::{
+        SliceRandom, 
+        ThreadRng
+    }, 
+    thread_rng
+};
 mod piece;
+mod geometry;
+
+
+use self::piece::{Piece, Kind as PieceKind};
+use self::geometry::GridIncrement;
 
 type Coordinate = Point2<usize>;
 type Offset = Vector2<isize>;
+
 
 #[derive(Copy,Clone, PartialEq, Debug)]
 pub enum MoveKind { Left, Right }
@@ -23,12 +42,14 @@ impl MoveKind {
     }
 }
 
+
 pub struct Engine {
     matrix: Matrix,
     bag: Vec<PieceKind>,
     rng: ThreadRng,
     cursor: Option<Piece>,
 }
+
 
 impl Engine {
     pub fn new() -> Self {
@@ -102,8 +123,12 @@ impl Engine {
         self.place_cursor();        
     }
 
-
-
+    fn cells(&self) ->CellIter <'_> {
+        CellIter {
+            position: Coordinate::origin(),
+            cell_iter: self.matrix.0.iter(),
+        }
+    }
 }
 
 
@@ -111,14 +136,15 @@ impl Engine {
 pub enum Color {Yellow, Cyan, Purple, Orange, Blue, Green, Red}
 
 
+pub struct Matrix([Option<Color>; Self::SIZE]);
 
-
-struct Matrix([Option<Color>;Self::SIZE]);
 
 impl Matrix {
-    const WIDTH: usize = 10;
-    const HEIGHT: usize = 20;
+    pub const WIDTH: usize = 10;
+    pub const HEIGHT: usize = 20;
     const SIZE: usize = Self::HEIGHT * Self::WIDTH;
+
+
 
     fn on_matrix(coord: Coordinate) -> bool {
         //x < Self::WIDTH && y < Self::HEIGHT
@@ -137,7 +163,6 @@ impl Matrix {
         Self([None; Self::SIZE])
     }
 
-
     fn is_clipping(&self, piece: &Piece) -> bool {
         let Some(cells) = piece.cells() else {
             return true;
@@ -147,7 +172,6 @@ impl Matrix {
         )
     }
 
-
     fn placeable(&self, piece: &Piece) -> bool {
         let Some(cells) = piece.cells() else {
             return false;
@@ -155,13 +179,12 @@ impl Matrix {
         cells.into_iter().all(|coord|
             Matrix::on_matrix(coord) && self[coord].is_none()
         )
-
     }
-
-
 }
 
+
 impl Index<Coordinate> for Matrix {
+
     type Output = Option<Color>;
 
     fn index(&self, coord: Coordinate) -> &Self::Output {
@@ -170,10 +193,86 @@ impl Index<Coordinate> for Matrix {
     }
 }
 
+
 impl IndexMut<Coordinate> for Matrix {
     
     fn index_mut(&mut self, coord: Coordinate) -> &mut Self::Output {
         assert!(Self::on_matrix(coord));
         &mut self.0[Self::indexing(coord)]
+    }
+}
+
+
+pub struct CellIter<'matrix> {
+    position: Coordinate,
+    cell_iter: ::std::slice::Iter<'matrix, Option<Color>>, //here <'matrix> is lifetime parameter
+}
+
+impl<'matrix> Iterator for CellIter<'matrix>{
+    type Item = (Coordinate, &'matrix Option<Color>) ;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        /*if let Some(cell) = self.cells.next() {
+            let coord = self.position;
+
+            return Some((coord, cell));
+        } else {
+            None
+        }*/
+
+        let Some(cell) = self.cell_iter.next() else {
+            return None;
+        };
+
+        let coord = self.position;
+
+        /*self.position.x += 1;
+        self.position.x %= Matrix::WIDTH;
+        if self.position.x == 0 {
+            self.position.y += 1;
+        }*/ // moved to geometry
+
+        self.position.grid_inc();
+        return Some((coord, cell));
+    } 
+}
+
+
+#[cfg(test)]
+mod test{
+
+    use super::*;
+
+    #[test]
+    fn cell_iter() {
+        let mut matrix = Matrix::blank();
+        matrix[Coordinate::new(2,0)] = Some(Color::Blue);
+        matrix[Coordinate::new(3,1)] = Some(Color::Green);
+
+        let mut iter = CellIter {
+            position: Coordinate::origin(),
+            cell_iter: matrix.0.iter(),
+        };
+
+        let first_five = (&mut iter).take(5).collect::<Vec<_>>();
+        
+        assert_eq!(first_five, vec![
+            (Coordinate::new(0,0), &None),
+            (Coordinate::new(1,0), &None),
+            (Coordinate::new(2,0), &Some(Color::Blue)),
+            (Coordinate::new(3,0), &None),
+            (Coordinate::new(4,0), &None),
+        ]);
+
+        let other_item = (&mut iter).skip(8).next();
+        assert_eq!(
+            other_item, 
+            Some((Coordinate::new(3,1), &Some(Color::Green)))
+        );
+
+
+        assert!(iter.all(|(_, contents)| contents.is_none()));
+
+
     }
 }
