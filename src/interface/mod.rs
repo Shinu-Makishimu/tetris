@@ -1,5 +1,5 @@
 //this piece of code from sdl example lib
-use cgmath::Vector2;
+use cgmath::{Vector2, EuclideanSpace, ElementWise};
 use sdl2::{
     pixels::Color, 
     event::Event, 
@@ -169,20 +169,25 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     } */ //insted using two cycles, use iterator
 
     let matrix_origin = matrix.bottom_left();
-    let (matrix_width, matrix_height) = matrix.size();
+    let matrix_dims = {
+        let (x,y) = matrix.size();
+        Vector2 { x , y }
+    };
+    let matrix_cells = Vector2::new(Matrix::WIDTH, Matrix::HEIGHT).cast::<u32>().unwrap();
 
     for (coord, _cell) in engine.cells() {
-        let coord = coord.cast::<i32>().unwrap();
-        
-        let this_x = (coord.x as u32 + 0) * matrix_width / Matrix::WIDTH as u32;
-        let this_y = (coord.y as u32 + 1) * matrix_height / Matrix::HEIGHT as u32;
-        let next_x = (coord.x as u32 + 1) * matrix_width / Matrix::WIDTH as u32;
-        let next_y = (coord.y as u32 + 2) * matrix_height / Matrix::HEIGHT as u32;
+
+        let coord = coord.to_vec().cast::<u32>().unwrap();
+
+        let this = (coord + Vector2::new(0,1)).mul_element_wise(matrix_dims).div_element_wise(matrix_cells);
+        let next = (coord + Vector2::new(1,0)).mul_element_wise(matrix_dims).div_element_wise(matrix_cells);
+
+
         let cell_rect = Rect::new(
-            matrix_origin.x + this_x as i32,
-            matrix_origin.y - this_y as i32,
-            next_x - this_x,
-            next_y - this_y,
+            matrix_origin.x + this.x as i32,
+            matrix_origin.y - this.y as i32,
+            next.x - this.x,
+            next.y - this.y,
         );
         
         canvas.set_draw_color(Color::WHITE);
