@@ -1,23 +1,8 @@
-use std::{
-    ops::{
-        Index, 
-        IndexMut
-    }
-};
+use std::{ops::{Index, IndexMut}};
 
-use cgmath::{
-    Vector2, 
-    Point2, 
-    EuclideanSpace
-};
+use cgmath::{Vector2, Point2, EuclideanSpace};
 
-use rand::{
-    prelude::{
-        SliceRandom, 
-        ThreadRng
-    }, 
-    thread_rng
-};
+use rand::{prelude::{SliceRandom, ThreadRng}, thread_rng};
 mod piece;
 mod geometry;
 
@@ -58,6 +43,13 @@ impl Engine {
             bag: Vec::new(),
             rng: thread_rng(),
             cursor: None,
+        }
+    }
+
+    pub fn with_matrix(matrix:Matrix) ->Self {
+        Self {
+            matrix,
+            ..Self::new()
         }
     }
 
@@ -159,7 +151,7 @@ impl Matrix {
         y * Self::WIDTH + x
     }
 
-    fn blank() -> Self{
+    pub fn blank() -> Self{
         Self([None; Self::SIZE])
     }
 

@@ -7,8 +7,8 @@ use sdl2::{
     render::Canvas, 
     video::Window
 };
-
-
+mod render_trait;
+use self::render_trait::ScreenColor;
 use crate::engine::{Engine, Matrix};
 
 const INIT_SIZE: Vector2<u32> = Vector2::new(1024,1024);
@@ -171,7 +171,11 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     let matrix_origin = matrix.bottom_left();
     let (matrix_width, matrix_height) = matrix.size();
 
-    for (coord, _cell) in engine.cells() {
+    for (coord, cell) in engine.cells() {
+        let Some(cell_color) = cell else {
+            continue;
+        };
+
         let coord = coord.cast::<i32>().unwrap();
         
         let this_x = (coord.x as u32 + 0) * matrix_width / Matrix::WIDTH as u32;
@@ -185,8 +189,9 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
             next_y - this_y,
         );
         
-        canvas.set_draw_color(Color::WHITE);
-        canvas.draw_rect(cell_rect).unwrap();
+        canvas.set_draw_color(cell_color.screen_color());
+        canvas.fill_rect(cell_rect).unwrap();
     }
     canvas.present();
 }
+
