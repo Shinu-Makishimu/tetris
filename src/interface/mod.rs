@@ -169,10 +169,7 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     } */ //insted using two cycles, use iterator
 
     let matrix_origin = matrix.bottom_left();
-    let matrix_dims = {
-        let (x,y) = matrix.size();
-        Vector2 { x , y }
-    };
+    let matrix_dims= Vector2::from(matrix.size());
     let matrix_cells = Vector2::new(Matrix::WIDTH, Matrix::HEIGHT).cast::<u32>().unwrap();
 
     for (coord, _cell) in engine.cells() {
