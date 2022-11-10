@@ -1,14 +1,10 @@
-use std::{ops::{Index, IndexMut}};
-
+use std::{ops::{Index, IndexMut}, time::Duration};
 use cgmath::{Vector2, Point2, EuclideanSpace};
-
 use rand::{prelude::{SliceRandom, ThreadRng}, thread_rng};
-mod piece;
+use self::{piece::{Piece, Kind as PieceKind, Rotation},geometry::GridIncrement} ;
+
+pub mod piece;
 mod geometry;
-
-
-use self::piece::{Piece, Kind as PieceKind};
-use self::geometry::GridIncrement;
 
 type Coordinate = Point2<usize>;
 type Offset = Vector2<isize>;
@@ -33,6 +29,7 @@ pub struct Engine {
     bag: Vec<PieceKind>,
     rng: ThreadRng,
     cursor: Option<Piece>,
+    level: u8,
 }
 
 
@@ -43,6 +40,7 @@ impl Engine {
             bag: Vec::new(),
             rng: thread_rng(),
             cursor: None,
+            level: 1,
         }
     }
 
@@ -85,13 +83,17 @@ impl Engine {
             return Err(());
             
         }
-        Ok(self.cursor = Some(new))
+        self.cursor = Some(new);
+        Ok(())
+    }
 
+    pub fn db_test_cursor(&mut self, kind: PieceKind, position: Offset) {
+        let piece = Piece {kind, rotation: Rotation::N, position};
+        self.cursor = Some(piece);
     }
 
     fn step_down(&mut self ) {
         self.cursor = Some(self.ticked_down_cursor().unwrap());
-
     }
 
     pub fn cursor_hit_down(&self) -> bool {
@@ -120,6 +122,12 @@ impl Engine {
             position: Coordinate::origin(),
             cell_iter: self.matrix.0.iter(),
         }
+    }
+
+    pub fn drop_time(&self) -> Duration {
+        let level_index = self.level - 1;
+        let sec_per_line  = (0.8 - (level_index as f32 * 0.007 )).powi(level_index as _);
+        Duration::from_secs_f32(sec_per_line)
     }
 }
 
@@ -201,7 +209,7 @@ pub struct CellIter<'matrix> {
 }
 
 impl<'matrix> Iterator for CellIter<'matrix>{
-    type Item = (Coordinate, &'matrix Option<Color>) ;
+    type Item = (Coordinate, Option<Color>) ;
 
     fn next(&mut self) -> Option<Self::Item> {
         /*if let Some(cell) = self.cells.next() {
@@ -212,7 +220,7 @@ impl<'matrix> Iterator for CellIter<'matrix>{
             None
         }*/
 
-        let Some(cell) = self.cell_iter.next() else {
+        let Some(&cell) = self.cell_iter.next() else {
             return None;
         };
 
@@ -225,7 +233,7 @@ impl<'matrix> Iterator for CellIter<'matrix>{
         }*/ // moved to geometry
 
         self.position.grid_inc();
-        return Some((coord, cell));
+        Some((coord, cell))
     } 
 }
 
@@ -249,17 +257,17 @@ mod test{
         let first_five = (&mut iter).take(5).collect::<Vec<_>>();
         
         assert_eq!(first_five, vec![
-            (Coordinate::new(0,0), &None),
-            (Coordinate::new(1,0), &None),
-            (Coordinate::new(2,0), &Some(Color::Blue)),
-            (Coordinate::new(3,0), &None),
-            (Coordinate::new(4,0), &None),
+            (Coordinate::new(0,0), None),
+            (Coordinate::new(1,0), None),
+            (Coordinate::new(2,0), Some(Color::Blue)),
+            (Coordinate::new(3,0), None),
+            (Coordinate::new(4,0), None),
         ]);
 
         let other_item = (&mut iter).skip(8).next();
         assert_eq!(
             other_item, 
-            Some((Coordinate::new(3,1), &Some(Color::Green)))
+            Some((Coordinate::new(3,1), Some(Color::Green)))
         );
 
 

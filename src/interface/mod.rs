@@ -1,28 +1,32 @@
+use std::time::Duration;
+
 //this piece of code from sdl example lib
 use cgmath::Vector2;
-use sdl2::{
-    pixels::Color, 
-    event::Event, 
-    rect::Rect, 
-    render::Canvas, 
-    video::Window
-};
+use sdl2::{pixels::Color, event::Event, rect::Rect, render::Canvas, video::Window};
 mod render_trait;
 use self::render_trait::ScreenColor;
-use crate::engine::{Engine, Matrix};
+use crate::engine::{Engine, Matrix, Color as SemanticColor};
 
 const INIT_SIZE: Vector2<u32> = Vector2::new(1024,1024);
 const BACKGROUND_COLOR: Color = Color::RGB(0x10,0x10,0x18);
 const PLACEHOLDER_1: Color = Color::RGB(0x66, 0x77, 0x77);
 const PLACEHOLDER_2: Color = Color::RGB(0x77, 0x88, 0x88);
 
+struct Tick;
+struct LockTick;
+struct Sleep(Duration);
 
 
 pub fn run(engine: Engine) {
     let sdl = sdl2::init().expect("Fail to init SDL2");
 
+    let event_subsys = sdl.event().expect("faled to activate event subsystem");
+    event_subsys.register_custom_event::<Tick>().unwrap();
+    event_subsys.register_custom_event::<LockTick>().unwrap();
+
     let mut canvas = {
         let video = sdl.video().expect("Fail to acqure display");
+        
         let window = video
             .window("Tetris", INIT_SIZE.x, INIT_SIZE.y)
             .position_centered()
@@ -39,10 +43,20 @@ pub fn run(engine: Engine) {
     };
 
     let mut events = sdl.event_pump().expect("Fail to get event loop");
+    
+    event_subsys.push_custom_event(Tick).unwrap();
+    event_subsys.push_custom_event(LockTick).unwrap();
+
     loop {
         for event in events.poll_iter() {
             match event {
                 Event::Quit { .. } =>return,
+                Event::User { .. } if event.as_user_event_type::<Tick>().is_some() => {
+                        println!("tick ev")
+                    },
+                Event::User { .. } if event.as_user_event_type::<LockTick>().is_some() => {
+                        println!("lock tick  ev")
+                    },
                 _ => {}
                 }
             }
@@ -162,6 +176,10 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     canvas.fill_rect(queue).unwrap();
     canvas.fill_rect(score_area).unwrap();
 
+    /*for sub_rect in [&matrix, &up_next, &hold, &queue, &score_area] {
+        canvas.fill_rect(sub_rect).unwrap();
+    }*/
+
     /*for cell_x in 0 .. Matrix::WIDTH {
         for cell_y in 0 .. Matrix::HEIGHT {
             todo!()
@@ -192,6 +210,13 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
         canvas.set_draw_color(cell_color.screen_color());
         canvas.fill_rect(cell_rect).unwrap();
     }
+
+    /*for (coord, cell) in engine.cursor_cells() {
+        
+    }*/
+
+
+
     canvas.present();
 }
 
