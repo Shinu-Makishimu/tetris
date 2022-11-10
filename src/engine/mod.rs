@@ -32,7 +32,6 @@ pub struct Engine {
     level: u8,
 }
 
-
 impl Engine {
     pub fn new() -> Self {
         Engine {
@@ -140,7 +139,6 @@ impl Engine {
 #[derive(Copy,Clone, PartialEq, Debug)]
 pub enum Color {Yellow, Cyan, Purple, Orange, Blue, Green, Red}
 
-
 pub struct Matrix([Option<Color>; Self::SIZE]);
 
 
@@ -148,8 +146,6 @@ impl Matrix {
     pub const WIDTH: usize = 10;
     pub const HEIGHT: usize = 20;
     const SIZE: usize = Self::HEIGHT * Self::WIDTH;
-
-
 
     fn on_matrix(coord: Coordinate) -> bool {
         //x < Self::WIDTH && y < Self::HEIGHT
@@ -189,7 +185,6 @@ impl Matrix {
 
 
 impl Index<Coordinate> for Matrix {
-
     type Output = Option<Color>;
 
     fn index(&self, coord: Coordinate) -> &Self::Output {
@@ -223,12 +218,11 @@ impl<'matrix> Iterator for CellIter<'matrix>{
             return Some((coord, cell));
         } else {
             None
-        }*/
+        }*/ //this piece of code is convert into let-some-else
 
         let Some(&cell) = self.cell_iter.next() else {
             return None;
         };
-
         let coord = self.position;
 
         /*self.position.x += 1;

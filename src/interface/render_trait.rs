@@ -15,7 +15,6 @@ impl ScreenColor for SemanticColor{
             SemanticColor::Blue   => SdlColor::RGB(0x72,0x9f,0xcf),
             SemanticColor::Green  => SdlColor::RGB(0x4e,0x9a,0x06),
             SemanticColor::Red    => SdlColor::RGB(0xcc,0x00,0x00),
-   
         }
     }
 

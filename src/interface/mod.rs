@@ -1,12 +1,10 @@
 use std::time::Duration;
-
-//this piece of code from sdl example lib
 use cgmath::{Vector2, EuclideanSpace, ElementWise, Point2};
-use sdl2::{pixels::Color, event::Event, rect::{Rect, Point}, render::Canvas, video::Window, sys::KeyCode, keyboard::Keycode};
-mod render_trait;
+use sdl2::{pixels::Color, event::Event, rect::{Rect, Point}, render::Canvas, video::Window, keyboard::Keycode};
 use self::render_trait::ScreenColor;
 use crate::engine::{Engine, Matrix, Color as SemanticColor, MoveKind};
 
+mod render_trait;
 const INIT_SIZE: Vector2<u32> = Vector2::new(1024,1024);
 const BACKGROUND_COLOR: Color = Color::RGB(0x10,0x10,0x18);
 const PLACEHOLDER_1: Color = Color::RGB(0x66, 0x77, 0x77);
@@ -47,34 +45,42 @@ pub fn run(mut engine: Engine) {
     
     event_subsys.push_custom_event(Tick).unwrap();
     event_subsys.push_custom_event(LockTick).unwrap();
-    let mut dirty: bool = true;
+
+    let mut redraw: bool = true; //flag means redraw screen
+
     loop {
         for event in events.poll_iter() {
             match event {
                 Event::Quit { .. } =>return,
                 Event::User { .. } if event.as_user_event_type::<Tick>().is_some() => {
-                        println!("tick ev");
-                        dirty = true;
+                    println!("tick ev");
+                    redraw = true;
 
-                    },
+                },
                 Event::User { .. } if event.as_user_event_type::<LockTick>().is_some() => {
-                        println!("lock tick  ev");
-                        dirty = true;
-                    },
-                Event::KeyDown { keycode: Some(key) , ..} => match key {
-                        Keycode::Right => drop(engine.move_cursor(MoveKind::Right)),
-                        Keycode::Left => drop(engine.move_cursor(MoveKind::Left)),
-                        Keycode::Up => engine.hard_drop(),
-                        Keycode::Down => todo!("soft drop"),
-                        _ => {}
-                    },
+                    println!("lock tick  ev");
+                    redraw = true;
+                },
+                Event::KeyDown { keycode: Some(key) , ..} => {
+                    if let Ok(input) = Input::try_from(key) {
+                        match input {
+                            Input::Move(kind) => drop(engine.move_cursor(kind)),
+                            Input::HardDrop => engine.hard_drop(),
+                            Input::SoftDrop => todo!(),
+                        }
+                        redraw = true;
+                    }
+                },
                 _ => {}
-                }
             }
-        draw(&mut canvas, &engine);
-        dirty = false;
-    }
+        }
 
+        if redraw {
+            draw(&mut canvas, &engine);
+        }
+
+        redraw = false;
+    }
 }
 
 enum Input {
@@ -83,10 +89,10 @@ enum Input {
     HardDrop,
 }
 
-impl TryFrom<KeyCode> for Input {
+impl TryFrom<Keycode> for Input {
     type Error = ();
     
-    fn try_from(key: KeyCode) -> Result<Self, Self::Error> {
+    fn try_from(key: Keycode) -> Result<Self, Self::Error> {
         Ok(match key {
             Keycode::Right => Self::Move(MoveKind::Right), 
             Keycode::Left  => Self::Move(MoveKind::Left),
@@ -231,7 +237,6 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     canvas.present();
 }
 
-
 struct CellDrawContext<'canvas> {
     origin: Point,
     dims: Vector2<u32>,
@@ -253,22 +258,22 @@ impl CellDrawContext<'_> {
     }
 
 
-
     fn draw_cell( 
             &mut self, 
             coord: Point2<usize>, 
             color: SemanticColor, 
         ) {
-
         let coord = coord.to_vec().cast::<u32>().unwrap();
         let this = (coord + Vector2::new(0,1)).mul_element_wise(self.dims).div_element_wise(Self::CELL_COUNT);
         let next = (coord + Vector2::new(1,0)).mul_element_wise(self.dims).div_element_wise(Self::CELL_COUNT);
+
         let cell_rect = Rect::new(
             self.origin.x + this.x as i32,
             self.origin.y - this.y as i32,
             next.x - this.x,
             this.y - next.y,
         );
+
         self.canvas.set_draw_color(color.screen_color());
         self.canvas.fill_rect(cell_rect).unwrap();
     }

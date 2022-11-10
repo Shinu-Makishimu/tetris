@@ -36,7 +36,6 @@ impl Piece {
                 return None;
             }
         }
-
         Some(coords)
     }
 
@@ -48,7 +47,6 @@ impl Piece {
             _ => {
                 let grid_offset = self.rotation.intrinsic_offset() * (self.kind.grid_size() - 1);
                 cell * self.rotation + grid_offset
-            
             }
         }
     }
@@ -93,7 +91,6 @@ impl Kind{
         }
     }
 
-
     pub fn color(&self) -> Color {
         match self {
             Self::O => Color::Yellow,
@@ -122,6 +119,7 @@ impl Rotation {
         }
     }
 }
+
 impl std::ops::Mul<Rotation> for Offset {
     type Output = Self;
 
