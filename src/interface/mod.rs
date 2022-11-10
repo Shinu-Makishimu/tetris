@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 //this piece of code from sdl example lib
-use cgmath::Vector2;
-use sdl2::{pixels::Color, event::Event, rect::Rect, render::Canvas, video::Window};
+use cgmath::{Vector2, EuclideanSpace, ElementWise, Point2};
+use sdl2::{pixels::Color, event::Event, rect::{Rect, Point}, render::Canvas, video::Window, sys::KeyCode, keyboard::Keycode};
 mod render_trait;
 use self::render_trait::ScreenColor;
-use crate::engine::{Engine, Matrix, Color as SemanticColor};
+use crate::engine::{Engine, Matrix, Color as SemanticColor, MoveKind};
 
 const INIT_SIZE: Vector2<u32> = Vector2::new(1024,1024);
 const BACKGROUND_COLOR: Color = Color::RGB(0x10,0x10,0x18);
@@ -14,10 +14,11 @@ const PLACEHOLDER_2: Color = Color::RGB(0x77, 0x88, 0x88);
 
 struct Tick;
 struct LockTick;
+struct SoftDropTick;
 struct Sleep(Duration);
 
 
-pub fn run(engine: Engine) {
+pub fn run(mut engine: Engine) {
     let sdl = sdl2::init().expect("Fail to init SDL2");
 
     let event_subsys = sdl.event().expect("faled to activate event subsystem");
@@ -46,24 +47,56 @@ pub fn run(engine: Engine) {
     
     event_subsys.push_custom_event(Tick).unwrap();
     event_subsys.push_custom_event(LockTick).unwrap();
-
+    let mut dirty: bool = true;
     loop {
         for event in events.poll_iter() {
             match event {
                 Event::Quit { .. } =>return,
                 Event::User { .. } if event.as_user_event_type::<Tick>().is_some() => {
-                        println!("tick ev")
+                        println!("tick ev");
+                        dirty = true;
+
                     },
                 Event::User { .. } if event.as_user_event_type::<LockTick>().is_some() => {
-                        println!("lock tick  ev")
+                        println!("lock tick  ev");
+                        dirty = true;
+                    },
+                Event::KeyDown { keycode: Some(key) , ..} => match key {
+                        Keycode::Right => drop(engine.move_cursor(MoveKind::Right)),
+                        Keycode::Left => drop(engine.move_cursor(MoveKind::Left)),
+                        Keycode::Up => engine.hard_drop(),
+                        Keycode::Down => todo!("soft drop"),
+                        _ => {}
                     },
                 _ => {}
                 }
             }
         draw(&mut canvas, &engine);
+        dirty = false;
     }
 
 }
+
+enum Input {
+    Move(MoveKind),
+    SoftDrop,
+    HardDrop,
+}
+
+impl TryFrom<KeyCode> for Input {
+    type Error = ();
+    
+    fn try_from(key: KeyCode) -> Result<Self, Self::Error> {
+        Ok(match key {
+            Keycode::Right => Self::Move(MoveKind::Right), 
+            Keycode::Left  => Self::Move(MoveKind::Left),
+            Keycode::Up    => Self::HardDrop,
+            Keycode::Down  => Self::SoftDrop,
+            _ => return Err(())
+        })
+    }
+}
+
 
 fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     canvas.set_draw_color(BACKGROUND_COLOR);
@@ -169,54 +202,75 @@ fn draw(canvas: &mut Canvas<Window>, engine: &Engine) {
     //this block is draw blocks for background
 
     canvas.set_draw_color(PLACEHOLDER_1);
-    canvas.fill_rect(matrix).unwrap();
-    canvas.set_draw_color(PLACEHOLDER_2);
-    canvas.fill_rect(up_next).unwrap();
-    canvas.fill_rect(hold).unwrap();
-    canvas.fill_rect(queue).unwrap();
-    canvas.fill_rect(score_area).unwrap();
 
-    /*for sub_rect in [&matrix, &up_next, &hold, &queue, &score_area] {
-        canvas.fill_rect(sub_rect).unwrap();
-    }*/
-
-    /*for cell_x in 0 .. Matrix::WIDTH {
-        for cell_y in 0 .. Matrix::HEIGHT {
-            todo!()
-        }
-    } */ //insted using two cycles, use iterator
-
-    let matrix_origin = matrix.bottom_left();
-    let (matrix_width, matrix_height) = matrix.size();
-
-    for (coord, cell) in engine.cells() {
-        let Some(cell_color) = cell else {
-            continue;
-        };
-
-        let coord = coord.cast::<i32>().unwrap();
-        
-        let this_x = (coord.x as u32 + 0) * matrix_width / Matrix::WIDTH as u32;
-        let this_y = (coord.y as u32 + 1) * matrix_height / Matrix::HEIGHT as u32;
-        let next_x = (coord.x as u32 + 1) * matrix_width / Matrix::WIDTH as u32;
-        let next_y = (coord.y as u32 + 2) * matrix_height / Matrix::HEIGHT as u32;
-        let cell_rect = Rect::new(
-            matrix_origin.x + this_x as i32,
-            matrix_origin.y - this_y as i32,
-            next_x - this_x,
-            next_y - this_y,
-        );
-        
-        canvas.set_draw_color(cell_color.screen_color());
-        canvas.fill_rect(cell_rect).unwrap();
+    for sub_rect in [&matrix, &up_next, &hold, &queue, &score_area] {
+        canvas.fill_rect(*sub_rect).unwrap();
     }
 
-    /*for (coord, cell) in engine.cursor_cells() {
-        
-    }*/
+    let mut cell_draw_ctx = CellDrawContext {
+        origin: matrix.bottom_left(),
+        dims: Vector2::from(matrix.size()),
+        canvas
+    };
+    
+    
+    for (coord, cell) in engine.cells() {
+        cell_draw_ctx.try_draw_cell(coord, cell);
+    }
+
+    if let Some ((cursor_cells , cursor_color)) = engine.cursor_info() {
+        for coord in cursor_cells  {
+            cell_draw_ctx.draw_cell(coord, cursor_color);  
+        }
+
+    }
+    
 
 
 
     canvas.present();
 }
 
+
+struct CellDrawContext<'canvas> {
+    origin: Point,
+    dims: Vector2<u32>,
+    canvas: &'canvas mut Canvas<Window>,
+}
+
+impl CellDrawContext<'_> {
+    const CELL_COUNT: Vector2<u32> = Vector2::new(Matrix::WIDTH as u32, Matrix::HEIGHT as u32);
+    
+    fn try_draw_cell(
+        &mut self, 
+        coord: Point2<usize>, 
+        cell: Option<SemanticColor>, 
+    ) {
+        let Some(color) = cell else {
+            return;
+        };
+        self.draw_cell(coord, color);
+    }
+
+
+
+    fn draw_cell( 
+            &mut self, 
+            coord: Point2<usize>, 
+            color: SemanticColor, 
+        ) {
+
+        let coord = coord.to_vec().cast::<u32>().unwrap();
+        let this = (coord + Vector2::new(0,1)).mul_element_wise(self.dims).div_element_wise(Self::CELL_COUNT);
+        let next = (coord + Vector2::new(1,0)).mul_element_wise(self.dims).div_element_wise(Self::CELL_COUNT);
+        let cell_rect = Rect::new(
+            self.origin.x + this.x as i32,
+            self.origin.y - this.y as i32,
+            next.x - this.x,
+            this.y - next.y,
+        );
+        self.canvas.set_draw_color(color.screen_color());
+        self.canvas.fill_rect(cell_rect).unwrap();
+    }
+    
+}

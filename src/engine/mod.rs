@@ -72,7 +72,7 @@ impl Engine {
         }
     }
 
-    fn move_cursor(&mut self, move_kind: MoveKind) -> Result<(), ()> {  //ok or err
+    pub fn move_cursor(&mut self, move_kind: MoveKind) -> Result<(), ()> {  //ok or err
         let Some(cursor) = self.cursor.as_mut() else {  //new feature in naitly release
             return Ok(());
         };
@@ -85,6 +85,11 @@ impl Engine {
         }
         self.cursor = Some(new);
         Ok(())
+    }
+
+    pub fn cursor_info(&self) -> Option<([Coordinate; Piece::CELL_COUNT], Color)> {
+        let cursor = self.cursor?;
+        Some((cursor.cells().unwrap(), cursor.kind.color()))
     }
 
     pub fn db_test_cursor(&mut self, kind: PieceKind, position: Offset) {
@@ -110,7 +115,7 @@ impl Engine {
         (!self.matrix.is_clipping(&new)).then_some(new)
     }
 
-    fn hard_drop(&mut self) {
+    pub fn hard_drop(&mut self) {
         while let Some(new) = self.ticked_down_cursor() {
             self.cursor = Some(new);
         }
