@@ -9,12 +9,12 @@ mod interface;
 
 fn main() {
     let mut matrix = Matrix::blank();
-    for col in 0..=5{
+    /*for col in 0..=5{
         matrix[(col,0).into()] = Some(Color::Green);
     }
     for col in 0..=2{
         matrix[(col,1).into()] = Some(Color::Yellow);
-    }
+    }*/
 
     let mut engine = Engine::with_matrix(matrix);
 

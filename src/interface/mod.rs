@@ -48,6 +48,9 @@ pub fn run(mut engine: Engine) {
 
     let mut redraw: bool = true; //flag means redraw screen
     let mut lockdown = false;
+
+    //todo: ticks, rotation, place piece on each other
+    
     loop {
         for event in events.poll_iter() {
             match event {
