@@ -47,7 +47,7 @@ pub fn run(mut engine: Engine) {
     event_subsys.push_custom_event(LockTick).unwrap();
 
     let mut redraw: bool = true; //flag means redraw screen
-
+    let mut lockdown = false;
     loop {
         for event in events.poll_iter() {
             match event {
@@ -55,7 +55,7 @@ pub fn run(mut engine: Engine) {
                 Event::User { .. } if event.as_user_event_type::<Tick>().is_some() => {
                     println!("tick ev");
                     redraw = true;
-
+                    lockdown = true;
                 },
                 Event::User { .. } if event.as_user_event_type::<LockTick>().is_some() => {
                     println!("lock tick  ev");
@@ -65,7 +65,10 @@ pub fn run(mut engine: Engine) {
                     if let Ok(input) = Input::try_from(key) {
                         match input {
                             Input::Move(kind) => drop(engine.move_cursor(kind)),
-                            Input::HardDrop => engine.hard_drop(),
+                            Input::HardDrop => {
+                                engine.hard_drop();
+                                lockdown = true;
+                            },
                             Input::SoftDrop => todo!(),
                         }
                         redraw = true;
@@ -73,6 +76,9 @@ pub fn run(mut engine: Engine) {
                 },
                 _ => {}
             }
+        }
+        if lockdown {
+            engine.line_clear(|_| ());
         }
 
         if redraw {
